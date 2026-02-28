@@ -1,0 +1,24 @@
+FROM python:3.11-slim
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Python settings
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+
+# Set workdir
+WORKDIR /app
+
+# Copy shared utilities
+COPY shared/ /app/shared/
+
+# Install Python dependencies (placeholder for now)
+# Each service will add its own requirements
+RUN pip install --no-cache-dir --upgrade pip
+
+# Default command
+CMD ["python", "-c", "print('Base Python image ready')"]

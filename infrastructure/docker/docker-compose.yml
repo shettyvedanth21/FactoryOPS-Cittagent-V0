@@ -1,0 +1,368 @@
+version: '3.8'
+
+services:
+  # Infrastructure Services
+  mysql:
+    image: mysql:8.0
+    container_name: factoryops_mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword
+      MYSQL_DATABASE: energy_device_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - ../mysql/init:/docker-entrypoint-initdb.d
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: factoryops_influxdb
+    environment:
+      INFLUXDB_INIT_MODE: setup
+      INFLUXDB_INIT_ORG: factoryops
+      INFLUXDB_INIT_BUCKET: telemetry
+      INFLUXDB_INIT_RETENTION: 90d
+      INFLUXDB_INIT_ADMIN_TOKEN: factoryops-admin-token
+      INFLUXDB_INIT_USERNAME: admin
+      INFLUXDB_INIT_PASSWORD: adminpassword
+    ports:
+      - "8086:8086"
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8086/ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  redis:
+    image: redis:7-alpine
+    container_name: factoryops_redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  emqx:
+    image: emqx:5.3
+    container_name: factoryops_emqx
+    environment:
+      EMQX_NODE_NAME: emqx@localhost
+      EMQX_DASHBOARD__DEFAULT_USERNAME: admin
+      EMQX_DASHBOARD__DEFAULT_PASSWORD: public
+    ports:
+      - "1883:1883"
+      - "8083:8083"
+      - "18083:18083"
+    healthcheck:
+      test: ["CMD", "true"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  minio:
+    image: minio/minio:latest
+    container_name: factoryops_minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - minio_data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  nginx:
+    image: nginx:alpine
+    container_name: factoryops_nginx
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ../nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on:
+      - device-service
+      - data-service
+      - rule-engine-service
+      - analytics-service
+      - reporting-service
+      - data-export-service
+      - ui-web
+    networks:
+      - factoryops_network
+
+  # Application Services
+  device-service:
+    build:
+      context: ../..
+      dockerfile: services/device-service/Dockerfile
+    container_name: factoryops_device_service
+    environment:
+      - DATABASE_URL=mysql+aiomysql://root:rootpassword@mysql:3306/energy_device_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - SERVICE_NAME=device-service
+      - LOG_LEVEL=INFO
+    ports:
+      - "8000:8000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  data-service:
+    build:
+      context: ../..
+      dockerfile: services/data-service/Dockerfile
+    container_name: factoryops_data_service
+    environment:
+      - DEVICE_SERVICE_URL=http://device-service:8000
+      - RULE_ENGINE_URL=http://rule-engine-service:8002
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=factoryops-admin-token
+      - INFLUX_ORG=factoryops
+      - INFLUX_BUCKET=telemetry
+      - MQTT_BROKER=emqx
+      - MQTT_PORT=1883
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - SERVICE_NAME=data-service
+      - LOG_LEVEL=INFO
+      - DEVICE_DB_HOST=mysql
+      - DEVICE_DB_PORT=3306
+      - DEVICE_DB_NAME=energy_device_db
+      - DEVICE_DB_USER=root
+      - DEVICE_DB_PASSWORD=rootpassword
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      emqx:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8081/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  rule-engine-service:
+    build:
+      context: ../..
+      dockerfile: services/rule-engine-service/Dockerfile
+    container_name: factoryops_rule_engine
+    environment:
+      - DATABASE_URL=mysql+aiomysql://root:rootpassword@mysql:3306/energy_rule_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - SERVICE_NAME=rule-engine-service
+      - LOG_LEVEL=INFO
+    ports:
+      - "8002:8002"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8002/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  analytics-service:
+    build:
+      context: ../..
+      dockerfile: services/analytics-service/Dockerfile
+    container_name: factoryops_analytics_service
+    environment:
+      - SERVICE_NAME=analytics-service
+      - HOST=0.0.0.0
+      - PORT=8003
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=rootpassword
+      - MYSQL_DATABASE=energy_analytics_db
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=factoryops-admin-token
+      - INFLUX_ORG=factoryops
+      - INFLUX_BUCKET=telemetry
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    ports:
+      - "8003:8003"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8003/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  reporting-service:
+    build:
+      context: ../..
+      dockerfile: services/reporting-service/Dockerfile
+    container_name: factoryops_reporting_service
+    environment:
+      - DATABASE_URL=mysql+aiomysql://root:rootpassword@mysql:3306/energy_reporting_db
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=
+      - SERVICE_NAME=reporting-service
+      - LOG_LEVEL=INFO
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=factoryops-admin-token
+      - INFLUX_ORG=factoryops
+      - INFLUX_BUCKET=telemetry
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_BUCKET=reports
+      - MINIO_SECURE=false
+      - DEFAULT_TARIFF_RATE=8.5
+      - DEVICE_SERVICE_URL=http://device-service:8000
+    ports:
+      - "8085:8085"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  data-export-service:
+    build:
+      context: ../..
+      dockerfile: services/data-export-service/Dockerfile
+    container_name: factoryops_data_export
+    environment:
+      - SERVICE_NAME=data-export-service
+      - HOST=0.0.0.0
+      - PORT=8080
+      - MYSQL_HOST=mysql
+      - MYSQL_PORT=3306
+      - MYSQL_USER=root
+      - MYSQL_PASSWORD=rootpassword
+      - MYSQL_DATABASE=energy_export_db
+      - INFLUX_URL=http://influxdb:8086
+      - INFLUX_TOKEN=factoryops-admin-token
+      - INFLUX_ORG=factoryops
+      - INFLUX_BUCKET=telemetry
+      - MINIO_ENDPOINT=minio:9000
+      - MINIO_ACCESS_KEY=minioadmin
+      - MINIO_SECRET_KEY=minioadmin
+      - MINIO_SECURE=false
+      - MINIO_BUCKET=exports
+      - EXPORT_TIMEOUT_MINUTES=30
+    ports:
+      - "8080:8080"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      influxdb:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+  ui-web:
+    build:
+      context: ../../ui-web
+    container_name: factoryops_ui_web
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_DEVICE_SERVICE_URL=http://localhost:8000
+      - NEXT_PUBLIC_DATA_SERVICE_URL=http://localhost:8081
+      - NEXT_PUBLIC_RULE_ENGINE_URL=http://localhost:8002
+      - NEXT_PUBLIC_ANALYTICS_SERVICE_URL=http://localhost:8003
+      - NEXT_PUBLIC_REPORTING_SERVICE_URL=http://localhost:8085
+      - NEXT_PUBLIC_DATA_EXPORT_URL=http://localhost:8080
+    ports:
+      - "3000:3000"
+    depends_on:
+      - device-service
+      - data-service
+      - rule-engine-service
+      - analytics-service
+      - reporting-service
+      - data-export-service
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - factoryops_network
+
+volumes:
+  mysql_data:
+  influxdb_data:
+  minio_data:
+
+networks:
+  factoryops_network:
+    driver: bridge

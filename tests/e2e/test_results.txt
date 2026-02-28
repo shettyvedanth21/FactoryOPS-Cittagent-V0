@@ -1,0 +1,240 @@
+============================= test session starts ==============================
+platform darwin -- Python 3.14.2, pytest-8.3.0, pluggy-1.6.0 -- /Users/vedanthshetty/Desktop/Complete-Project/OPENCODE/factoryops/venv/bin/python3.14
+cachedir: .pytest_cache
+rootdir: /Users/vedanthshetty/Desktop/Complete-Project/OPENCODE/factoryops
+plugins: anyio-4.12.1
+collecting ... collected 26 items
+
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_01_create_device PASSED [  3%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_02_create_rule FAILED  [  7%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_03_publish_trigger_telemetry FAILED [ 11%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_04_verify_alert_created FAILED [ 15%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_05_acknowledge_alert FAILED [ 19%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_06_resolve_alert FAILED [ 23%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_07_cooldown_prevents_duplicate_alert FAILED [ 26%]
+tests/e2e/test_alert_flow.py::TestAlertFlow::test_08_cleanup PASSED      [ 30%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_01_create_device_and_seed_data FAILED [ 34%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_02_submit_failure_prediction_job FAILED [ 38%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_03_poll_until_completed FAILED [ 42%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_04_fetch_results FAILED [ 46%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_05_verify_result_structure FAILED [ 50%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_06_verify_no_ml_jargon FAILED [ 53%]
+tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_07_cleanup PASSED [ 57%]
+tests/e2e/test_report_flow.py::TestReportFlow::test_01_create_device_and_seed_data FAILED [ 61%]
+tests/e2e/test_report_flow.py::TestReportFlow::test_02_generate_consumption_report FAILED [ 65%]
+tests/e2e/test_report_flow.py::TestReportFlow::test_03_poll_until_completed FAILED [ 69%]
+tests/e2e/test_report_flow.py::TestReportFlow::test_04_download_report FAILED [ 73%]
+tests/e2e/test_report_flow.py::TestReportFlow::test_05_cleanup PASSED    [ 76%]
+tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_01_create_device PASSED [ 80%]
+tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_02_publish_mqtt_message FAILED [ 84%]
+tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_03_verify_influxdb_write FAILED [ 88%]
+tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_04_verify_latest_telemetry_api FAILED [ 92%]
+tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_05_verify_device_heartbeat_updated FAILED [ 96%]
+tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_06_cleanup FAILED [100%]
+
+=================================== FAILURES ===================================
+______________________ TestAlertFlow.test_02_create_rule _______________________
+tests/e2e/test_alert_flow.py:40: in test_02_create_rule
+    assert r.status_code == 201
+E   assert 422 == 201
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+_______________ TestAlertFlow.test_03_publish_trigger_telemetry ________________
+tests/e2e/test_alert_flow.py:46: in test_03_publish_trigger_telemetry
+    publish_mqtt(DEVICE_ID, {"temperature": 75.0})
+tests/e2e/conftest.py:55: in publish_mqtt
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+E   AttributeError: module 'paho.mqtt.client' has no attribute 'CallbackAPIVersion'
+__________________ TestAlertFlow.test_04_verify_alert_created __________________
+tests/e2e/test_alert_flow.py:57: in test_04_verify_alert_created
+    result = poll_until(
+tests/e2e/conftest.py:68: in poll_until
+    raise TimeoutError(f"Condition not met within {timeout}s")
+E   TimeoutError: Condition not met within 30s
+___________________ TestAlertFlow.test_05_acknowledge_alert ____________________
+tests/e2e/test_alert_flow.py:73: in test_05_acknowledge_alert
+    assert r.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_____________________ TestAlertFlow.test_06_resolve_alert ______________________
+tests/e2e/test_alert_flow.py:79: in test_06_resolve_alert
+    assert r.status_code == 200
+E   assert 405 == 200
+E    +  where 405 = <Response [405 Method Not Allowed]>.status_code
+___________ TestAlertFlow.test_07_cooldown_prevents_duplicate_alert ____________
+tests/e2e/test_alert_flow.py:90: in test_07_cooldown_prevents_duplicate_alert
+    publish_mqtt(DEVICE_ID, {"temperature": 75.0})
+tests/e2e/conftest.py:55: in publish_mqtt
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+E   AttributeError: module 'paho.mqtt.client' has no attribute 'CallbackAPIVersion'
+____________ TestAnalyticsFlow.test_01_create_device_and_seed_data _____________
+tests/e2e/test_analytics_flow.py:53: in test_01_create_device_and_seed_data
+    seed_30_days(influx_write)
+tests/e2e/test_analytics_flow.py:41: in seed_30_days
+    influx_write.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=points)
+venv/lib/python3.14/site-packages/influxdb_client/client/write_api.py:379: in write
+    results = list(map(write_payload, payloads.items()))
+venv/lib/python3.14/site-packages/influxdb_client/client/write_api.py:377: in write_payload
+    return self._post_write(_async_req, bucket, org, final_string, payload[0])
+venv/lib/python3.14/site-packages/influxdb_client/client/write_api.py:510: in _post_write
+    return self._write_service.post_write(org=org, bucket=bucket, body=body, precision=precision,
+venv/lib/python3.14/site-packages/influxdb_client/service/write_service.py:60: in post_write
+    (data) = self.post_write_with_http_info(org, bucket, body, **kwargs)  # noqa: E501
+venv/lib/python3.14/site-packages/influxdb_client/service/write_service.py:90: in post_write_with_http_info
+    return self.api_client.call_api(
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:343: in call_api
+    return self.__call_api(resource_path, method,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:173: in __call_api
+    response_data = self.request(
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:388: in request
+    return self.rest_client.POST(url,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/rest.py:311: in POST
+    return self.request("POST", url,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/rest.py:261: in request
+    raise ApiException(http_resp=r)
+E   influxdb_client.rest.ApiException: (401)
+E   Reason: Unauthorized
+E   HTTP response headers: HTTPHeaderDict({'Content-Type': 'application/json; charset=utf-8', 'X-Influxdb-Build': 'OSS', 'X-Influxdb-Version': 'v2.7.12', 'X-Platform-Error-Code': 'unauthorized', 'Date': 'Fri, 27 Feb 2026 16:39:21 GMT', 'Content-Length': '55'})
+E   HTTP response body: {"code":"unauthorized","message":"unauthorized access"}
+___________ TestAnalyticsFlow.test_02_submit_failure_prediction_job ____________
+tests/e2e/test_analytics_flow.py:65: in test_02_submit_failure_prediction_job
+    assert r.status_code in [200, 201, 202]
+E   assert 422 in [200, 201, 202]
+E    +  where 422 = <Response [422 Unprocessable Entity]>.status_code
+________________ TestAnalyticsFlow.test_03_poll_until_completed ________________
+tests/e2e/test_analytics_flow.py:76: in test_03_poll_until_completed
+    result = poll_until(
+tests/e2e/conftest.py:64: in poll_until
+    result = fn()
+tests/e2e/test_analytics_flow.py:73: in fetch_job
+    r = http.get(f"{BASE_URLS['analytics']}/api/v1/analytics/jobs/{self.__class__.job_id}")
+E   AttributeError: type object 'TestAnalyticsFlow' has no attribute 'job_id'
+___________________ TestAnalyticsFlow.test_04_fetch_results ____________________
+tests/e2e/test_analytics_flow.py:87: in test_04_fetch_results
+    r = http.get(f"{BASE_URLS['analytics']}/api/v1/analytics/results/{self.__class__.job_id}")
+E   AttributeError: type object 'TestAnalyticsFlow' has no attribute 'job_id'
+______________ TestAnalyticsFlow.test_05_verify_result_structure _______________
+tests/e2e/test_analytics_flow.py:95: in test_05_verify_result_structure
+    results = self.__class__.results
+E   AttributeError: type object 'TestAnalyticsFlow' has no attribute 'results'
+________________ TestAnalyticsFlow.test_06_verify_no_ml_jargon _________________
+tests/e2e/test_analytics_flow.py:106: in test_06_verify_no_ml_jargon
+    results_str = json.dumps(self.__class__.results).lower()
+E   AttributeError: type object 'TestAnalyticsFlow' has no attribute 'results'
+______________ TestReportFlow.test_01_create_device_and_seed_data ______________
+tests/e2e/test_report_flow.py:42: in test_01_create_device_and_seed_data
+    seed_influx_data(influx_write)
+tests/e2e/test_report_flow.py:30: in seed_influx_data
+    influx_write.write(bucket=INFLUX_BUCKET, org=INFLUX_ORG, record=points)
+venv/lib/python3.14/site-packages/influxdb_client/client/write_api.py:379: in write
+    results = list(map(write_payload, payloads.items()))
+venv/lib/python3.14/site-packages/influxdb_client/client/write_api.py:377: in write_payload
+    return self._post_write(_async_req, bucket, org, final_string, payload[0])
+venv/lib/python3.14/site-packages/influxdb_client/client/write_api.py:510: in _post_write
+    return self._write_service.post_write(org=org, bucket=bucket, body=body, precision=precision,
+venv/lib/python3.14/site-packages/influxdb_client/service/write_service.py:60: in post_write
+    (data) = self.post_write_with_http_info(org, bucket, body, **kwargs)  # noqa: E501
+venv/lib/python3.14/site-packages/influxdb_client/service/write_service.py:90: in post_write_with_http_info
+    return self.api_client.call_api(
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:343: in call_api
+    return self.__call_api(resource_path, method,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:173: in __call_api
+    response_data = self.request(
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:388: in request
+    return self.rest_client.POST(url,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/rest.py:311: in POST
+    return self.request("POST", url,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/rest.py:261: in request
+    raise ApiException(http_resp=r)
+E   influxdb_client.rest.ApiException: (401)
+E   Reason: Unauthorized
+E   HTTP response headers: HTTPHeaderDict({'Content-Type': 'application/json; charset=utf-8', 'X-Influxdb-Build': 'OSS', 'X-Influxdb-Version': 'v2.7.12', 'X-Platform-Error-Code': 'unauthorized', 'Date': 'Fri, 27 Feb 2026 16:39:21 GMT', 'Content-Length': '55'})
+E   HTTP response body: {"code":"unauthorized","message":"unauthorized access"}
+______________ TestReportFlow.test_02_generate_consumption_report ______________
+tests/e2e/test_report_flow.py:55: in test_02_generate_consumption_report
+    assert r.status_code in [200, 202]
+E   assert 404 in [200, 202]
+E    +  where 404 = <Response [404 Not Found]>.status_code
+_________________ TestReportFlow.test_03_poll_until_completed __________________
+tests/e2e/test_report_flow.py:66: in test_03_poll_until_completed
+    result = poll_until(
+tests/e2e/conftest.py:64: in poll_until
+    result = fn()
+tests/e2e/test_report_flow.py:63: in fetch_report
+    r = http.get(f"{BASE_URLS['reporting']}/api/v1/reports/{self.__class__.report_id}")
+E   AttributeError: type object 'TestReportFlow' has no attribute 'report_id'
+____________________ TestReportFlow.test_04_download_report ____________________
+tests/e2e/test_report_flow.py:76: in test_04_download_report
+    r = http.get(f"{BASE_URLS['reporting']}/api/v1/reports/{self.__class__.report_id}/download")
+E   AttributeError: type object 'TestReportFlow' has no attribute 'report_id'
+________________ TestTelemetryFlow.test_02_publish_mqtt_message ________________
+tests/e2e/test_telemetry_flow.py:29: in test_02_publish_mqtt_message
+    publish_mqtt(DEVICE_ID, {
+tests/e2e/conftest.py:55: in publish_mqtt
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION1)
+E   AttributeError: module 'paho.mqtt.client' has no attribute 'CallbackAPIVersion'
+_______________ TestTelemetryFlow.test_03_verify_influxdb_write ________________
+tests/e2e/test_telemetry_flow.py:45: in test_03_verify_influxdb_write
+    result = influx_query.query(query=query, org=INFLUX_ORG)
+venv/lib/python3.14/site-packages/influxdb_client/client/query_api.py:203: in query
+    response = self._query_api.post_query(org=org, query=self._create_query(query, self.default_dialect, params),
+venv/lib/python3.14/site-packages/influxdb_client/service/query_service.py:285: in post_query
+    (data) = self.post_query_with_http_info(**kwargs)  # noqa: E501
+venv/lib/python3.14/site-packages/influxdb_client/service/query_service.py:311: in post_query_with_http_info
+    return self.api_client.call_api(
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:343: in call_api
+    return self.__call_api(resource_path, method,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:173: in __call_api
+    response_data = self.request(
+venv/lib/python3.14/site-packages/influxdb_client/_sync/api_client.py:388: in request
+    return self.rest_client.POST(url,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/rest.py:311: in POST
+    return self.request("POST", url,
+venv/lib/python3.14/site-packages/influxdb_client/_sync/rest.py:261: in request
+    raise ApiException(http_resp=r)
+E   influxdb_client.rest.ApiException: (401)
+E   Reason: Unauthorized
+E   HTTP response headers: HTTPHeaderDict({'Content-Type': 'application/json; charset=utf-8', 'X-Influxdb-Build': 'OSS', 'X-Influxdb-Version': 'v2.7.12', 'X-Platform-Error-Code': 'unauthorized', 'Date': 'Fri, 27 Feb 2026 16:39:21 GMT', 'Content-Length': '55'})
+E   HTTP response body: b'{"code":"unauthorized","message":"unauthorized access"}'
+____________ TestTelemetryFlow.test_04_verify_latest_telemetry_api _____________
+tests/e2e/test_telemetry_flow.py:52: in test_04_verify_latest_telemetry_api
+    assert r.status_code == 200
+E   assert 404 == 200
+E    +  where 404 = <Response [404 Not Found]>.status_code
+__________ TestTelemetryFlow.test_05_verify_device_heartbeat_updated ___________
+tests/e2e/test_telemetry_flow.py:63: in test_05_verify_device_heartbeat_updated
+    assert device["last_seen_timestamp"] is not None
+E   assert None is not None
+______________________ TestTelemetryFlow.test_06_cleanup _______________________
+tests/e2e/test_telemetry_flow.py:70: in test_06_cleanup
+    assert r.status_code == 200
+E   assert 204 == 200
+E    +  where 204 = <Response [204 No Content]>.status_code
+=============================== warnings summary ===============================
+venv/lib/python3.14/site-packages/influxdb_client/client/write/point.py:13
+  /Users/vedanthshetty/Desktop/Complete-Project/OPENCODE/factoryops/venv/lib/python3.14/site-packages/influxdb_client/client/write/point.py:13: DeprecationWarning: datetime.datetime.utcfromtimestamp() is deprecated and scheduled for removal in a future version. Use timezone-aware objects to represent datetimes in UTC: datetime.datetime.fromtimestamp(timestamp, datetime.UTC).
+    EPOCH = datetime.utcfromtimestamp(0).replace(tzinfo=timezone.utc)
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+FAILED tests/e2e/test_alert_flow.py::TestAlertFlow::test_02_create_rule - ass...
+FAILED tests/e2e/test_alert_flow.py::TestAlertFlow::test_03_publish_trigger_telemetry
+FAILED tests/e2e/test_alert_flow.py::TestAlertFlow::test_04_verify_alert_created
+FAILED tests/e2e/test_alert_flow.py::TestAlertFlow::test_05_acknowledge_alert
+FAILED tests/e2e/test_alert_flow.py::TestAlertFlow::test_06_resolve_alert - a...
+FAILED tests/e2e/test_alert_flow.py::TestAlertFlow::test_07_cooldown_prevents_duplicate_alert
+FAILED tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_01_create_device_and_seed_data
+FAILED tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_02_submit_failure_prediction_job
+FAILED tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_03_poll_until_completed
+FAILED tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_04_fetch_results
+FAILED tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_05_verify_result_structure
+FAILED tests/e2e/test_analytics_flow.py::TestAnalyticsFlow::test_06_verify_no_ml_jargon
+FAILED tests/e2e/test_report_flow.py::TestReportFlow::test_01_create_device_and_seed_data
+FAILED tests/e2e/test_report_flow.py::TestReportFlow::test_02_generate_consumption_report
+FAILED tests/e2e/test_report_flow.py::TestReportFlow::test_03_poll_until_completed
+FAILED tests/e2e/test_report_flow.py::TestReportFlow::test_04_download_report
+FAILED tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_02_publish_mqtt_message
+FAILED tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_03_verify_influxdb_write
+FAILED tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_04_verify_latest_telemetry_api
+FAILED tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_05_verify_device_heartbeat_updated
+FAILED tests/e2e/test_telemetry_flow.py::TestTelemetryFlow::test_06_cleanup
+=================== 21 failed, 5 passed, 1 warning in 30.63s ===================
