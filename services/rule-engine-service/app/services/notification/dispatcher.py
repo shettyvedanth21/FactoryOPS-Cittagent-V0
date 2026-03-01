@@ -31,10 +31,24 @@ class NotificationDispatcher:
             if notification_channels.get("email"):
                 emails = notification_channels.get("email", [])
                 if emails:
+                    alert_data = {
+                        "device_id": device_id,
+                        "parameter": rule.property,
+                        "property": rule.property,
+                        "actual_value": alert.actual_value,
+                        "threshold": rule.threshold,
+                        "condition": rule.condition,
+                        "operator": rule.condition,
+                        "severity": alert.severity,
+                        "rule_name": rule.rule_name,
+                        "timestamp": alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat(),
+                        "triggered_at": alert.created_at.isoformat() if alert.created_at else datetime.utcnow().isoformat()
+                    }
                     await self.email_adapter.send(
                         recipients=emails,
-                        subject=f"[{alert.severity.upper()}] Alert: {rule.rule_name}",
-                        body=f"Alert Details:\n\nDevice: {device_id}\nProperty: {rule.property}\nActual Value: {alert.actual_value}\nThreshold: {rule.condition} {rule.threshold}\nSeverity: {alert.severity}\nTime: {alert.created_at.isoformat()}"
+                        subject=f"[{alert.severity.upper()}] FactoryOPS Alert: {rule.property} {rule.condition} {rule.threshold} on {device_id}",
+                        body=f"Alert Details:\n\nDevice: {device_id}\nProperty: {rule.property}\nActual Value: {alert.actual_value}\nThreshold: {rule.condition} {rule.threshold}\nSeverity: {alert.severity}\nTime: {alert.created_at.isoformat()}",
+                        alert_data=alert_data
                     )
         except Exception as e:
             logger.error(f"Email notification failed: {e}")

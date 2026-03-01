@@ -74,7 +74,7 @@ export default function RuleWizard() {
     severity: 'warning',
     cooldown_minutes: 15,
     notifications: {
-      email: [],
+      email: ['vedanth.shetty@cittagent.com', 'manash.ray@cittagent.com'],
       sms: [],
       webhook: [],
       whatsapp: [],
@@ -131,7 +131,11 @@ export default function RuleWizard() {
 
   const handleBack = () => {
     setStepError(null)
-    setCurrentStep(prev => (prev - 1) as 1 | 2 | 3 | 4)
+    if (currentStep === 1) {
+      router.push('/rules')
+    } else {
+      setCurrentStep(prev => (prev - 1) as 1 | 2 | 3 | 4)
+    }
   }
 
   const handleSubmit = async () => {
@@ -265,7 +269,6 @@ export default function RuleWizard() {
           <Button
             variant="ghost"
             onClick={handleBack}
-            disabled={currentStep === 1}
           >
             Back
           </Button>

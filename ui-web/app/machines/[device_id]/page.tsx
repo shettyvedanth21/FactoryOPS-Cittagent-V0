@@ -2,10 +2,10 @@
 
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
-import { getDevice, getShifts, createShift, deleteShift, getHealthConfigs, createHealthConfig, getUptime } from '@/lib/api/devices'
+import { getDevice, getShifts, createShift, deleteShift, getHealthConfigs, createHealthConfig, deleteHealthConfig, getUptime, getLatestHealthScore } from '@/lib/api/devices'
 import { getAlerts } from '@/lib/api/rules'
 import { getLatestTelemetry } from '@/lib/api/telemetry'
-import { Device, Alert, DeviceShift, ParameterHealthConfig, TelemetryData } from '@/lib/types'
+import { Device, Alert, DeviceShift, ParameterHealthConfig } from '@/lib/types'
 import { StatusBadge } from '@/components/machines/StatusBadge'
 import { HealthScoreBadge } from '@/components/machines/HealthScoreBadge'
 import { KPICard } from '@/components/dashboard/KPICard'
@@ -39,11 +39,13 @@ export default function MachineDetailPage() {
   const device_id = params.device_id as string
 
   const [device, setDevice] = useState<Device | null>(null)
-  const [latestTelemetry, setLatestTelemetry] = useState<TelemetryData | null>(null)
+  const [latestTelemetry, setLatestTelemetry] = useState<Record<string, number> | null>(null)
+  const [availableParams, setAvailableParams] = useState<string[]>([])
   const [recentAlerts, setRecentAlerts] = useState<Alert[]>([])
   const [uptimeData, setUptimeData] = useState<unknown>(null)
   const [shifts, setShifts] = useState<DeviceShift[]>([])
   const [healthConfigs, setHealthConfigs] = useState<ParameterHealthConfig[]>([])
+  const [healthScore, setHealthScore] = useState<{score: number | null; grade: string}>({score: null, grade: 'N/A'})
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState('overview')
 
@@ -86,11 +88,24 @@ export default function MachineDetailPage() {
       ])
 
       if (deviceRes.success && deviceRes.data) setDevice(deviceRes.data)
-      if (telemetryRes.success && telemetryRes.data) setLatestTelemetry(telemetryRes.data)
+      if (telemetryRes.success && telemetryRes.data) {
+        setLatestTelemetry(telemetryRes.data as unknown as Record<string, number>)
+        const metaFields = ['timestamp', 'result', 'table', '_start', '_stop', '_result']
+        const params = Object.keys(telemetryRes.data).filter((k: string) => !metaFields.includes(k))
+        setAvailableParams(params)
+      }
       if (alertsRes.success && alertsRes.data) setRecentAlerts(alertsRes.data)
       if (uptimeRes.success) setUptimeData(uptimeRes.data)
       if (shiftsRes.success && shiftsRes.data) setShifts(shiftsRes.data)
       if (healthRes.success && healthRes.data) setHealthConfigs(healthRes.data)
+      
+      const healthScoreRes = await getLatestHealthScore(device_id)
+      if (healthScoreRes.success && healthScoreRes.data) {
+        setHealthScore({
+          score: healthScoreRes.data.score,
+          grade: healthScoreRes.data.grade
+        })
+      }
       
       setLoading(false)
     }
@@ -102,7 +117,6 @@ export default function MachineDetailPage() {
     const result = await createShift(device_id, {
       ...shiftForm,
       day_of_week: parseInt(shiftForm.day_of_week),
-      is_active: true,
     })
     if (result.success) {
       const shiftsRes = await getShifts(device_id)
@@ -119,7 +133,23 @@ export default function MachineDetailPage() {
     }
   }
 
+  const handleDeleteHealthConfig = async (configId: number) => {
+    const result = await deleteHealthConfig(device_id, configId)
+    if (result.success) {
+      setHealthConfigs(healthConfigs.filter(c => c.id !== configId))
+    }
+  }
+
   const handleCreateHealthConfig = async () => {
+    const remainingWeight = 100 - totalWeight
+    if (healthForm.weight > remainingWeight) {
+      alert(`Weight too high. You have ${remainingWeight.toFixed(1)}% remaining to reach 100%.`)
+      return
+    }
+    if (totalWeight + healthForm.weight > 100) {
+      alert(`Total weight cannot exceed 100%. Current total: ${totalWeight}%, you are trying to add: ${healthForm.weight}%`)
+      return
+    }
     const result = await createHealthConfig(device_id, {
       ...healthForm,
       is_active: true,
@@ -198,12 +228,12 @@ export default function MachineDetailPage() {
                 </CardHeader>
                 <CardContent className="flex flex-col items-center">
                   <HealthScoreBadge 
-                    score={device.health_score || 0} 
-                    grade={device.health_grade || 'N/A'} 
+                    score={healthScore.score ?? 0} 
+                    grade={healthScore.grade || 'N/A'} 
                     size="lg" 
                   />
                   <p className="text-slate-400 mt-2">
-                    Score: {device.health_score?.toFixed(1) || '--'}/100
+                    Score: {healthScore.score !== null ? `${healthScore.score}/100` : '--'}
                   </p>
                   <Button 
                     variant="outline" 
@@ -220,19 +250,19 @@ export default function MachineDetailPage() {
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 <KPICard 
                   title="Power" 
-                  value={latestTelemetry?.data?.power ?? '--'} 
+                  value={latestTelemetry?.power ?? '--'} 
                   unit="W"
                   icon={<Zap className="w-5 h-5" />}
                 />
                 <KPICard 
                   title="Voltage" 
-                  value={latestTelemetry?.data?.voltage ?? '--'} 
+                  value={latestTelemetry?.voltage ?? '--'} 
                   unit="V"
                   icon={<Gauge className="w-5 h-5" />}
                 />
                 <KPICard 
                   title="Temperature" 
-                  value={latestTelemetry?.data?.temperature ?? '--'} 
+                  value={latestTelemetry?.temperature ?? '--'} 
                   unit="°C"
                   icon={<Thermometer className="w-5 h-5" />}
                 />
@@ -331,7 +361,7 @@ export default function MachineDetailPage() {
                           <td className="p-2 text-white">{shift.shift_start}</td>
                           <td className="p-2 text-white">{shift.shift_end}</td>
                           <td className="p-2 text-white">{shift.maintenance_break_minutes}</td>
-                          <td className="p-2 text-white">{shift.day_of_week === 0 ? 'All' : shift.day_of_week}</td>
+                          <td className="p-2 text-white">{shift.day_of_week !== undefined ? (['All Days','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday'][shift.day_of_week] ?? shift.day_of_week) : 'All'}</td>
                           <td className="p-2 text-white">{shift.is_active ? 'Yes' : 'No'}</td>
                           <td className="p-2">
                             <Button variant="destructive" size="sm" onClick={() => handleDeleteShift(shift.id)}>
@@ -345,20 +375,43 @@ export default function MachineDetailPage() {
                 )}
 
                 {showShiftForm ? (
-                  <div className="grid grid-cols-2 md:grid-cols-6 gap-4 p-4 bg-slate-700/50 rounded">
-                    <Input placeholder="Shift Name" value={shiftForm.shift_name} onChange={e => setShiftForm({...shiftForm, shift_name: e.target.value})} />
-                    <Input type="time" value={shiftForm.shift_start} onChange={e => setShiftForm({...shiftForm, shift_start: e.target.value})} />
-                    <Input type="time" value={shiftForm.shift_end} onChange={e => setShiftForm({...shiftForm, shift_end: e.target.value})} />
-                    <Input type="number" placeholder="Break (min)" value={shiftForm.maintenance_break_minutes} onChange={e => setShiftForm({...shiftForm, maintenance_break_minutes: parseInt(e.target.value)})} />
-                    <Select value={shiftForm.day_of_week} onValueChange={v => setShiftForm({...shiftForm, day_of_week: v})}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="0">All Days</SelectItem>
-                        {[1,2,3,4,5,6,7].map(d => <SelectItem key={d} value={String(d)}>Day {d}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <div className="flex gap-2">
-                      <Button onClick={handleCreateShift}>Save</Button>
+                  <div className="p-5 bg-slate-700/40 rounded-lg border border-slate-600 space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-1">
+                        <label className="text-sm text-slate-400">Shift Name</label>
+                        <Input placeholder="e.g. Morning Shift" value={shiftForm.shift_name} onChange={e => setShiftForm({...shiftForm, shift_name: e.target.value})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm text-slate-400">Day of Week</label>
+                        <Select value={shiftForm.day_of_week} onValueChange={v => setShiftForm({...shiftForm, day_of_week: v})}>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="0">All Days</SelectItem>
+                            <SelectItem value="1">Monday</SelectItem>
+                            <SelectItem value="2">Tuesday</SelectItem>
+                            <SelectItem value="3">Wednesday</SelectItem>
+                            <SelectItem value="4">Thursday</SelectItem>
+                            <SelectItem value="5">Friday</SelectItem>
+                            <SelectItem value="6">Saturday</SelectItem>
+                            <SelectItem value="7">Sunday</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm text-slate-400">Start Time</label>
+                        <Input type="time" value={shiftForm.shift_start} onChange={e => setShiftForm({...shiftForm, shift_start: e.target.value})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm text-slate-400">End Time</label>
+                        <Input type="time" value={shiftForm.shift_end} onChange={e => setShiftForm({...shiftForm, shift_end: e.target.value})} />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-sm text-slate-400">Maintenance Break (minutes)</label>
+                        <Input type="number" placeholder="e.g. 30" value={shiftForm.maintenance_break_minutes} onChange={e => setShiftForm({...shiftForm, maintenance_break_minutes: parseInt(e.target.value)})} />
+                      </div>
+                    </div>
+                    <div className="flex gap-3 pt-2">
+                      <Button onClick={handleCreateShift}>Save Shift</Button>
                       <Button variant="outline" onClick={() => setShowShiftForm(false)}>Cancel</Button>
                     </div>
                   </div>
@@ -375,8 +428,14 @@ export default function MachineDetailPage() {
               <CardHeader>
                 <CardTitle className="text-white flex items-center justify-between">
                   Health Parameter Configuration
-                  <span className={`text-sm ${Math.abs(totalWeight - 100) < 0.01 ? 'text-green-500' : 'text-red-500'}`}>
-                    Total weight: {totalWeight.toFixed(1)}%
+                  <span className={`text-sm font-medium ${
+                    Math.abs(totalWeight - 100) < 0.01
+                      ? 'text-green-500'
+                      : totalWeight > 100
+                      ? 'text-red-500'
+                      : 'text-yellow-400'
+                  }`}>
+                    Total weight: {totalWeight.toFixed(1)}% {Math.abs(totalWeight - 100) < 0.01 ? '✓' : totalWeight > 100 ? '⚠ Over 100%' : `(${(100 - totalWeight).toFixed(1)}% remaining)`}
                   </span>
                 </CardTitle>
               </CardHeader>
@@ -392,6 +451,7 @@ export default function MachineDetailPage() {
                         <th className="p-2">Max Max</th>
                         <th className="p-2">Weight</th>
                         <th className="p-2">Active</th>
+                        <th className="p-2">Actions</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -404,6 +464,11 @@ export default function MachineDetailPage() {
                           <td className="p-2 text-white">{config.max_max}</td>
                           <td className="p-2 text-white">{config.weight}</td>
                           <td className="p-2 text-white">{config.is_active ? 'Yes' : 'No'}</td>
+                          <td className="p-2">
+                            <Button variant="destructive" size="sm" onClick={() => handleDeleteHealthConfig(config.id)}>
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </td>
                         </tr>
                       ))}
                     </tbody>
@@ -411,19 +476,98 @@ export default function MachineDetailPage() {
                 )}
 
                 {showHealthForm ? (
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 bg-slate-700/50 rounded">
-                    <Input placeholder="Parameter Name" value={healthForm.parameter_name} onChange={e => setHealthForm({...healthForm, parameter_name: e.target.value})} />
-                    <Input type="number" placeholder="Normal Min" value={healthForm.normal_min} onChange={e => setHealthForm({...healthForm, normal_min: parseFloat(e.target.value)})} />
-                    <Input type="number" placeholder="Normal Max" value={healthForm.normal_max} onChange={e => setHealthForm({...healthForm, normal_max: parseFloat(e.target.value)})} />
-                    <Input type="number" placeholder="Max Min" value={healthForm.max_min} onChange={e => setHealthForm({...healthForm, max_min: parseFloat(e.target.value)})} />
-                    <Input type="number" placeholder="Max Max" value={healthForm.max_max} onChange={e => setHealthForm({...healthForm, max_max: parseFloat(e.target.value)})} />
-                    <Input type="number" placeholder="Weight" value={healthForm.weight} onChange={e => setHealthForm({...healthForm, weight: parseFloat(e.target.value)})} />
-                    <div className="flex items-center gap-2">
-                      <input type="checkbox" checked={healthForm.ignore_zero_value} onChange={e => setHealthForm({...healthForm, ignore_zero_value: e.target.checked})} />
-                      <span className="text-white">Ignore Zero</span>
+                  <div className="p-5 bg-slate-700/40 rounded-lg border border-slate-600 space-y-5">
+                    <div className="space-y-2">
+                      <label className="text-sm text-slate-400">Select Parameter</label>
+                      {availableParams.length === 0 ? (
+                        <p className="text-slate-500 text-sm">No telemetry parameters available. Make sure the device is sending data.</p>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {availableParams.map(param => {
+                            const isConfigured = healthConfigs.some(c => c.parameter_name === param)
+                            const isSelected = healthForm.parameter_name === param
+                            return (
+                              <button
+                                key={param}
+                                type="button"
+                                disabled={isConfigured}
+                                onClick={() => setHealthForm({...healthForm, parameter_name: param})}
+                                className={`px-3 py-1.5 rounded-full text-sm font-medium capitalize transition-colors ${
+                                  isConfigured
+                                    ? 'bg-green-500/20 text-green-400 border border-green-500/40 cursor-not-allowed'
+                                    : isSelected
+                                    ? 'bg-blue-500 text-white border border-blue-500'
+                                    : 'bg-slate-700 text-slate-300 border border-slate-600 hover:border-blue-400 hover:text-blue-400 cursor-pointer'
+                                }`}
+                              >
+                                {param} {isConfigured ? '✓' : ''}
+                              </button>
+                            )
+                          })}
+                        </div>
+                      )}
+                      {healthForm.parameter_name && (
+                        <p className="text-xs text-blue-400">Selected: {healthForm.parameter_name}</p>
+                      )}
                     </div>
-                    <div className="flex gap-2">
-                      <Button onClick={handleCreateHealthConfig}>Save</Button>
+
+                    <div className="space-y-2">
+                      <div className="px-3 py-2 bg-blue-500/10 border border-blue-500/30 rounded text-blue-400 text-sm">
+                        <p className="font-medium">Normal Range (Optimal)</p>
+                        <p className="text-blue-400/70 text-xs mt-0.5">Values here get 70–100% efficiency score</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm text-slate-400">Normal Min</label>
+                          <Input type="number" value={healthForm.normal_min} onChange={e => setHealthForm({...healthForm, normal_min: parseFloat(e.target.value)})} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm text-slate-400">Normal Max</label>
+                          <Input type="number" value={healthForm.normal_max} onChange={e => setHealthForm({...healthForm, normal_max: parseFloat(e.target.value)})} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <div className="px-3 py-2 bg-orange-500/10 border border-orange-500/30 rounded text-orange-400 text-sm">
+                        <p className="font-medium">Maximum Range (Limits)</p>
+                        <p className="text-orange-400/70 text-xs mt-0.5">Values outside normal but within max get 25–69% score</p>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1">
+                          <label className="text-sm text-slate-400">Max Min</label>
+                          <Input type="number" value={healthForm.max_min} onChange={e => setHealthForm({...healthForm, max_min: parseFloat(e.target.value)})} />
+                        </div>
+                        <div className="space-y-1">
+                          <label className="text-sm text-slate-400">Max Max</label>
+                          <Input type="number" value={healthForm.max_max} onChange={e => setHealthForm({...healthForm, max_max: parseFloat(e.target.value)})} />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-sm text-slate-400">Weight (%)</label>
+                      <Input type="number" placeholder="e.g. 20" value={healthForm.weight} onChange={e => setHealthForm({...healthForm, weight: parseFloat(e.target.value)})} />
+                      <p className="text-xs text-slate-500">
+                        Remaining: {(100 - totalWeight).toFixed(1)}% — all parameters must sum to exactly 100%
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 py-1">
+                      <input
+                        type="checkbox"
+                        id="ignore-zero"
+                        checked={healthForm.ignore_zero_value}
+                        onChange={e => setHealthForm({...healthForm, ignore_zero_value: e.target.checked})}
+                        className="w-4 h-4 rounded"
+                      />
+                      <label htmlFor="ignore-zero" className="text-white text-sm cursor-pointer">
+                        Ignore zero values <span className="text-slate-400">(exclude from scoring when machine is off)</span>
+                      </label>
+                    </div>
+
+                    <div className="flex gap-3 pt-1">
+                      <Button onClick={handleCreateHealthConfig}>Save Parameter</Button>
                       <Button variant="outline" onClick={() => setShowHealthForm(false)}>Cancel</Button>
                     </div>
                   </div>

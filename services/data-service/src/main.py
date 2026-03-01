@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi import Request
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 import logging
 
 from src.config import settings
@@ -17,6 +18,14 @@ app = FastAPI(
     title="Data Service",
     version="1.0.0",
     description="FactoryOPS Telemetry Data Service"
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 

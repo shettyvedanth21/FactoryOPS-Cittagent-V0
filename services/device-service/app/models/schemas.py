@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, time
 from typing import Optional, List, Any
 from pydantic import BaseModel, Field, field_validator
 import re
@@ -94,8 +94,8 @@ class ShiftResponse(BaseModel):
     device_id: str
     tenant_id: Optional[str] = None
     shift_name: str
-    shift_start: datetime
-    shift_end: datetime
+    shift_start: str
+    shift_end: str
     maintenance_break_minutes: int
     day_of_week: Optional[int] = None
     is_active: bool
@@ -103,6 +103,13 @@ class ShiftResponse(BaseModel):
     updated_at: datetime
     
     model_config = {"from_attributes": True}
+    
+    @field_validator('shift_start', 'shift_end', mode='before')
+    @classmethod
+    def serialize_time(cls, v):
+        if isinstance(v, time):
+            return v.strftime('%H:%M')
+        return str(v) if v else None
 
 
 class HealthConfigCreate(BaseModel):

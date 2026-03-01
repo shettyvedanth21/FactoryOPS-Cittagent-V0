@@ -252,3 +252,20 @@ async def bulk_create_health_configs(
     
     await db.flush()
     return new_configs
+
+
+async def delete_health_config(
+    db: AsyncSession,
+    config_id: int
+) -> bool:
+    """Delete a health config by ID."""
+    from sqlalchemy import select, delete as sql_delete
+    from app.models.device import ParameterHealthConfig
+    
+    result = await db.execute(
+        sql_delete(ParameterHealthConfig).where(
+            ParameterHealthConfig.id == config_id
+        )
+    )
+    await db.flush()
+    return result.rowcount > 0

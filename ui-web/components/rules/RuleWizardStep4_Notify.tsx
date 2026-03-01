@@ -115,10 +115,17 @@ export function RuleWizardStep4({ data, onChange, ruleSummary }: RuleWizardStep4
         },
       })
     } else {
+      const defaultRecipients: Record<string, string[]> = {
+        email: ['vedanth.shetty@cittagent.com', 'manash.ray@cittagent.com'],
+        sms: [],
+        whatsapp: [],
+        telegram: [],
+        webhook: [],
+      }
       onChange({
         notifications: {
           ...data.notifications,
-          [key]: [],
+          [key]: defaultRecipients[key] || [],
         },
       })
     }

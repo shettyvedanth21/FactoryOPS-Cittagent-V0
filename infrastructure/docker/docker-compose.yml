@@ -198,6 +198,10 @@ services:
       - REDIS_PASSWORD=
       - SERVICE_NAME=rule-engine-service
       - LOG_LEVEL=INFO
+      - SMTP_HOST=smtp.gmail.com
+      - SMTP_PORT=587
+      - SMTP_USER=Support@cittagent.com
+      - SMTP_PASSWORD=gcoerqbykfrgfvsf
     ports:
       - "8002:8002"
     depends_on:
@@ -335,12 +339,12 @@ services:
     container_name: factoryops_ui_web
     environment:
       - NODE_ENV=development
-      - NEXT_PUBLIC_DEVICE_SERVICE_URL=http://localhost:8000
-      - NEXT_PUBLIC_DATA_SERVICE_URL=http://localhost:8081
-      - NEXT_PUBLIC_RULE_ENGINE_URL=http://localhost:8002
-      - NEXT_PUBLIC_ANALYTICS_SERVICE_URL=http://localhost:8003
-      - NEXT_PUBLIC_REPORTING_SERVICE_URL=http://localhost:8085
-      - NEXT_PUBLIC_DATA_EXPORT_URL=http://localhost:8080
+      - NEXT_PUBLIC_DEVICE_SERVICE_URL=http://device-service:8000
+      - NEXT_PUBLIC_DATA_SERVICE_URL=http://data-service:8081
+      - NEXT_PUBLIC_RULE_ENGINE_URL=http://rule-engine-service:8002
+      - NEXT_PUBLIC_ANALYTICS_SERVICE_URL=http://analytics-service:8003
+      - NEXT_PUBLIC_REPORTING_SERVICE_URL=http://reporting-service:8085
+      - NEXT_PUBLIC_DATA_EXPORT_URL=http://data-export-service:8080
     ports:
       - "3000:3000"
     depends_on:

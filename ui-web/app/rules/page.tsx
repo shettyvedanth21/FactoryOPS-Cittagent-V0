@@ -12,16 +12,10 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu'
 import { Skeleton } from '@/components/ui/skeleton'
 import { getRules, updateRuleStatus, deleteRule } from '@/lib/api/rules'
 import { Rule } from '@/lib/types'
-import { MoreHorizontal, Plus, AlertTriangle } from 'lucide-react'
+import { Plus, AlertTriangle } from 'lucide-react'
 
 export default function RulesPage() {
   const router = useRouter()
@@ -48,10 +42,20 @@ export default function RulesPage() {
     return () => clearInterval(interval)
   }, [])
 
-  const handleStatusChange = async (rule_id: string, status: 'active' | 'paused') => {
+  const handleStatusChange = async (rule_id: string, newStatus: 'active' | 'paused') => {
+    const currentStatus = newStatus === 'active' ? 'paused' : 'active'
+    setRules(prev => prev.map(r =>
+      r.rule_id === rule_id ? { ...r, status: newStatus } : r
+    ))
     setActionLoading(prev => ({ ...prev, [rule_id]: true }))
-    await updateRuleStatus(rule_id, status)
-    await fetchRules()
+    const result = await updateRuleStatus(rule_id, newStatus)
+    if (!result.success) {
+      setRules(prev => prev.map(r =>
+        r.rule_id === rule_id ? { ...r, status: currentStatus } : r
+      ))
+      console.error('Failed to toggle rule status:', result)
+      alert('Failed to update rule status. Please try again.')
+    }
     setActionLoading(prev => ({ ...prev, [rule_id]: false }))
   }
 
@@ -169,33 +173,49 @@ export default function RulesPage() {
                   })}
                 </TableCell>
                 <TableCell>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="icon" disabled={actionLoading[rule.rule_id]}>
-                        <MoreHorizontal className="w-4 h-4" />
+                  <div className="flex items-center gap-2">
+                    {rule.status === 'active' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-yellow-600 border-yellow-400/50 hover:bg-yellow-50 h-8 px-2"
+                        onClick={() => handleStatusChange(rule.rule_id, 'paused')}
+                        disabled={actionLoading[rule.rule_id]}
+                      >
+                        Pause
                       </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      {rule.status === 'active' && (
-                        <DropdownMenuItem onClick={() => handleStatusChange(rule.rule_id, 'paused')}>
-                          Pause Rule
-                        </DropdownMenuItem>
-                      )}
-                      {rule.status === 'paused' && (
-                        <DropdownMenuItem onClick={() => handleStatusChange(rule.rule_id, 'active')}>
-                          Activate Rule
-                        </DropdownMenuItem>
-                      )}
-                      {rule.status !== 'archived' && (
-                        <DropdownMenuItem
-                          className="text-red-600"
-                          onClick={() => handleArchive(rule.rule_id)}
-                        >
-                          Archive Rule
-                        </DropdownMenuItem>
-                      )}
-                    </DropdownMenuContent>
-                  </DropdownMenu>
+                    )}
+                    {rule.status === 'paused' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-green-600 border-green-400/50 hover:bg-green-50 h-8 px-2"
+                        onClick={() => handleStatusChange(rule.rule_id, 'active')}
+                        disabled={actionLoading[rule.rule_id]}
+                      >
+                        Resume
+                      </Button>
+                    )}
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="text-blue-600 border-blue-400/50 hover:bg-blue-50 h-8 px-2"
+                      onClick={() => router.push(`/rules/${rule.rule_id}`)}
+                    >
+                      View
+                    </Button>
+                    {rule.status !== 'archived' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="text-red-600 border-red-400/50 hover:bg-red-50 h-8 px-2"
+                        onClick={() => handleArchive(rule.rule_id)}
+                        disabled={actionLoading[rule.rule_id]}
+                      >
+                        Delete
+                      </Button>
+                    )}
+                  </div>
                 </TableCell>
               </TableRow>
             ))}

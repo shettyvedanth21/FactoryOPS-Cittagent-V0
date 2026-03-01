@@ -1,6 +1,7 @@
 from typing import List, Optional
 import uuid
 import json
+import logging
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,6 +18,7 @@ from shared.response import success_response, error_response
 from shared.exceptions import RuleNotFoundException, ValidationException
 
 router = APIRouter()
+logger = logging.getLogger(__name__)
 
 rule_evaluator = RuleEvaluator()
 
@@ -104,6 +106,38 @@ async def create_rule(
     db.add(rule)
     await db.commit()
     await db.refresh(rule)
+    
+    # Send email notification for rule creation
+    try:
+        recipients = []
+        notification_channels = rule_data.notification_channels or {}
+        if isinstance(notification_channels, dict):
+            email_config = notification_channels.get('email', {})
+            if isinstance(email_config, dict) and email_config.get('enabled'):
+                recipients = email_config.get('recipients', [])
+        
+        # Fall back to default recipients from env if none specified
+        if not recipients:
+            import os
+            default = os.getenv("EMAIL_RECIPIENTS", "")
+            recipients = [r.strip() for r in default.split(',') if r.strip()]
+        
+        if recipients:
+            from app.services.notification.email_adapter import send_rule_created_notification
+            rule_dict = {
+                "rule_id": rule.rule_id,
+                "rule_name": rule.rule_name,
+                "property": rule.property,
+                "condition": rule.condition,
+                "threshold": rule.threshold,
+                "severity": rule.severity,
+                "device_ids": rule.device_ids or [],
+                "notification_channels": rule.notification_channels or {},
+                "created_at": rule.created_at.isoformat() if rule.created_at else "Just now"
+            }
+            send_rule_created_notification(rule_dict, recipients)
+    except Exception as e:
+        logger.error(f"Failed to send rule creation email: {e}")
     
     return success_response(data={
         "rule_id": rule.rule_id,

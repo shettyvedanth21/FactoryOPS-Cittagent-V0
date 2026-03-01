@@ -48,16 +48,16 @@ function relativeTime(ts: string): string {
 export default function AlertsPage() {
   const [alerts, setAlerts] = useState<Alert[]>([])
   const [loading, setLoading] = useState(true)
-  const [statusFilter, setStatusFilter] = useState('')
-  const [severityFilter, setSeverityFilter] = useState('')
+  const [statusFilter, setStatusFilter] = useState('all')
+  const [severityFilter, setSeverityFilter] = useState('all')
   const [deviceSearch, setDeviceSearch] = useState('')
   const [updating, setUpdating] = useState<Record<string, boolean>>({})
 
   const fetchAlerts = async () => {
     try {
       const response = await getAlerts({
-        status: statusFilter || undefined,
-        severity: severityFilter || undefined,
+        status: statusFilter === 'all' ? undefined : statusFilter || undefined,
+        severity: severityFilter === 'all' ? undefined : severityFilter || undefined,
         device_id: deviceSearch || undefined,
         limit: 100,
       })
@@ -130,7 +130,7 @@ export default function AlertsPage() {
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="open">Open</SelectItem>
             <SelectItem value="acknowledged">Acknowledged</SelectItem>
             <SelectItem value="resolved">Resolved</SelectItem>
@@ -142,7 +142,7 @@ export default function AlertsPage() {
             <SelectValue placeholder="All Severity" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="">All Severity</SelectItem>
+            <SelectItem value="all">All Severity</SelectItem>
             <SelectItem value="info">Info</SelectItem>
             <SelectItem value="warning">Warning</SelectItem>
             <SelectItem value="critical">Critical</SelectItem>
