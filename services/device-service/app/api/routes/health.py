@@ -217,7 +217,7 @@ async def get_latest_health_score(
     try:
         async with httpx.AsyncClient() as client:
             telemetry_resp = await client.get(
-                f"http://data-service:8081/api/telemetry/{device_id}/latest",
+                f"http://data-service:8081/api/v1/telemetry/{device_id}/latest",
                 timeout=10.0
             )
             telemetry_resp.raise_for_status()
