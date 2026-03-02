@@ -25,7 +25,7 @@ async def create_device(
 @router.get("/devices")
 async def get_devices(
     page: int = Query(1, ge=1),
-    limit: int = Query(20, ge=1, le=100),
+    limit: int = Query(20, ge=1, le=1000),
     status: Optional[str] = Query(None),
     device_type: Optional[str] = Query(None),
     search: Optional[str] = Query(None),

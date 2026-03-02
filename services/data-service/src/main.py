@@ -95,6 +95,6 @@ async def readiness_check():
 
 from src.api.routes import telemetry, websocket, properties
 
-app.include_router(telemetry.router, prefix="/api", tags=["telemetry"])
-app.include_router(websocket.router, prefix="/api", tags=["websocket"])
-app.include_router(properties.router, prefix="/api", tags=["properties"])
+app.include_router(telemetry.router, prefix="/api/v1", tags=["telemetry"])
+app.include_router(websocket.router, prefix="/api/v1", tags=["websocket"])
+app.include_router(properties.router, prefix="/api/v1", tags=["properties"])

@@ -59,7 +59,7 @@ export default function AnalyticsPage() {
 
   useEffect(() => {
     async function fetchDevices() {
-      const result = await getDevices({ limit: 500 })
+      const result = await getDevices({ limit: 100 })
       if (result.success && result.data) {
         setDevices(result.data)
       }

@@ -29,6 +29,14 @@ const TIME_RANGES = [
   { label: '30d', value: '30d', hours: 720 },
 ]
 
+function getAggregate(hours: number): string {
+  if (hours <= 1) return '1m'
+  if (hours <= 6) return '5m'
+  if (hours <= 24) return '15m'
+  if (hours <= 168) return '1h'
+  return '6h'
+}
+
 const LINE_COLORS = [
   '#3b82f6',
   '#ef4444',
@@ -90,6 +98,8 @@ export default function ChartsPage({ params }: { params: Promise<{ device_id: st
         start: start.toISOString(),
         end: end.toISOString(),
         fields: selectedParams.join(','),
+        aggregate: getAggregate(range.hours),
+        limit: 1000,
       })
 
       setLoading(false)

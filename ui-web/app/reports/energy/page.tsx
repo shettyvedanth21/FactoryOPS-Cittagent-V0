@@ -53,7 +53,7 @@ export default function EnergyReportsPage() {
     async function fetchData() {
       try {
         const [devicesRes, historyRes] = await Promise.all([
-          getDevices({ limit: 500 }),
+          getDevices({ limit: 100 }),
           getReportHistory(),
         ])
         if (devicesRes.success && devicesRes.data) {
@@ -148,8 +148,14 @@ export default function EnergyReportsPage() {
 
   const handleDownload = async (report_id: string) => {
     const r = await getReportDownloadUrl(report_id)
-    if (r.success && r.data?.url) {
-      window.open(r.data.url, '_blank')
+    const downloadUrl = r.data?.url || (r.data as { download_url?: string })?.download_url
+    if (r.success && downloadUrl) {
+      const a = document.createElement('a')
+      a.href = downloadUrl
+      a.download = `report-${report_id}.pdf`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
     }
   }
 

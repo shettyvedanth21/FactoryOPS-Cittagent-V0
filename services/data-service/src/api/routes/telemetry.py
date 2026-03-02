@@ -75,25 +75,54 @@ async def get_all_properties(
     page: int = Query(1, ge=1),
     limit: int = Query(100, ge=1, le=1000)
 ):
-    """Get all device properties across all devices."""
+    """Get all device properties (fields) from InfluxDB."""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{settings.DEVICE_SERVICE_URL}/api/v1/devices/properties",
-                params={"page": page, "limit": limit}
-            )
-            
-            if response.status_code != 200:
-                return error_response(
-                    code="FETCH_ERROR",
-                    message="Failed to fetch properties"
-                )
-            
-            data = response.json()
-            return success_response(
-                data=data.get("data", []),
-                pagination=data.get("pagination", {})
-            )
+        query = f'''
+        from(bucket: "{settings.INFLUX_BUCKET}")
+        |> range(start: -7d)
+        |> filter(fn: (r) => r._measurement == "telemetry")
+        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+        |> limit(n:10)
+        '''
+        
+        result = influx_client._query_api.query_data_frame(query)
+        
+        if isinstance(result, list):
+            if len(result) == 0:
+                return success_response(data=[], pagination={"page": page, "limit": limit, "total": 0})
+            result = result[0]
+        
+        if result.empty:
+            return success_response(data=[], pagination={"page": page, "limit": limit, "total": 0})
+        
+        device_fields = {}
+        for _, row in result.iterrows():
+            device_id = row.get("device_id")
+            if device_id:
+                if device_id not in device_fields:
+                    device_fields[device_id] = set()
+                for col in result.columns:
+                    if col not in ["_time", "_measurement", "device_id", "schema_version", "enrichment_status", "_start", "_stop", "result", "table"]:
+                        device_fields[device_id].add(col)
+        
+        all_props = []
+        for device_id, fields in device_fields.items():
+            for field in fields:
+                all_props.append({
+                    "property_name": field,
+                    "device_id": device_id,
+                    "data_type": "numeric"
+                })
+        
+        total = len(all_props)
+        start_idx = (page - 1) * limit
+        end_idx = start_idx + limit
+        paginated = all_props[start_idx:end_idx]
+        
+        return success_response(
+            data=paginated,
+            pagination={"page": page, "limit": limit, "total": total}
+        )
     
     except Exception as e:
         return error_response(
@@ -104,21 +133,33 @@ async def get_all_properties(
 
 @router.get("/properties/{device_id}")
 async def get_device_properties(device_id: str):
-    """Get properties for a specific device."""
+    """Get properties (fields) for a specific device from InfluxDB."""
     try:
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            response = await client.get(
-                f"{settings.DEVICE_SERVICE_URL}/api/v1/devices/{device_id}/properties"
-            )
-            
-            if response.status_code != 200:
-                return error_response(
-                    code="FETCH_ERROR",
-                    message=f"Failed to fetch properties for device {device_id}"
-                )
-            
-            data = response.json()
-            return success_response(data=data.get("data", []))
+        query = f'''
+        from(bucket: "{settings.INFLUX_BUCKET}")
+        |> range(start: -7d)
+        |> filter(fn: (r) => r._measurement == "telemetry")
+        |> filter(fn: (r) => r.device_id == "{device_id}")
+        |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
+        |> limit(n:1)
+        '''
+        
+        result = influx_client._query_api.query_data_frame(query)
+        
+        if isinstance(result, list) or result.empty or len(result) == 0:
+            return success_response(data=[])
+        
+        row = result.iloc[0]
+        fields = []
+        for col in result.columns:
+            if col not in ["_time", "_measurement", "device_id", "schema_version", "enrichment_status", "_start", "_stop", "result", "table"]:
+                fields.append({
+                    "property_name": col,
+                    "device_id": device_id,
+                    "data_type": "numeric"
+                })
+        
+        return success_response(data=fields)
     
     except Exception as e:
         return error_response(

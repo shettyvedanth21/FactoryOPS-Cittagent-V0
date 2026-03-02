@@ -15,8 +15,10 @@ logger = logging.getLogger(__name__)
 class MinioClient:
     def __init__(self):
         self._client: Optional[Minio] = None
+        self._public_client: Optional[Minio] = None
     
     def get_client(self) -> Minio:
+        """Internal client using Docker hostname — for upload/delete operations"""
         if self._client is None:
             self._client = Minio(
                 settings.MINIO_ENDPOINT,
@@ -25,6 +27,17 @@ class MinioClient:
                 secure=settings.MINIO_SECURE
             )
         return self._client
+
+    def get_public_client(self) -> Minio:
+        """Public client using public endpoint — for presigned URL generation only"""
+        if self._public_client is None:
+            self._public_client = Minio(
+                settings.MINIO_PUBLIC_ENDPOINT,
+                access_key=settings.MINIO_ACCESS_KEY,
+                secret_key=settings.MINIO_SECRET_KEY,
+                secure=settings.MINIO_SECURE
+            )
+        return self._public_client
     
     async def upload_report(
         self,
@@ -61,6 +74,7 @@ class MinioClient:
         s3_key: str,
         expires_in: int = 3600
     ) -> str:
+        # Use internal client (minio:9000) which can actually connect
         client = self.get_client()
         
         try:
@@ -69,7 +83,9 @@ class MinioClient:
                 s3_key,
                 expires=timedelta(seconds=expires_in)
             )
-            return url
+            # minio hostname resolves via /etc/hosts (127.0.0.1 minio)
+            # Return URL as-is so signature remains valid
+            return str(url)
         except S3Error as e:
             logger.error(f"Error generating download URL: {e}")
             raise

@@ -127,8 +127,8 @@ async def create_rule(
             rule_dict = {
                 "rule_id": rule.rule_id,
                 "rule_name": rule.rule_name,
-                "property": rule.property,
-                "condition": rule.condition,
+                "parameter": rule.property,
+                "operator": rule.condition,
                 "threshold": rule.threshold,
                 "severity": rule.severity,
                 "device_ids": rule.device_ids or [],

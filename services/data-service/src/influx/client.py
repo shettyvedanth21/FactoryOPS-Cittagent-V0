@@ -112,11 +112,11 @@ class InfluxDBClientWrapper:
             field_str = "*" if not fields else ", ".join(fields)
             
             if aggregate:
-                agg_map = {"1m": "1m", "5m": "5m", "1h": "1h"}
+                agg_map = {"1m": "1m", "5m": "5m", "15m": "15m", "1h": "1h"}
                 window = agg_map.get(aggregate, "1m")
                 query = f'''
                 from(bucket: "{settings.INFLUX_BUCKET}")
-                |> range(start: {start.isoformat()}Z, stop: {end.isoformat()}Z)
+                |> range(start: time(v: "{start.isoformat()}"), stop: time(v: "{end.isoformat()}"))
                 |> filter(fn: (r) => r._measurement == "telemetry")
                 |> filter(fn: (r) => r.device_id == "{device_id}")
                 |> aggregateWindow(every: {window}, fn: mean, createEmpty: false)
@@ -125,7 +125,7 @@ class InfluxDBClientWrapper:
             else:
                 query = f'''
                 from(bucket: "{settings.INFLUX_BUCKET}")
-                |> range(start: {start.isoformat()}Z, stop: {end.isoformat()}Z)
+                |> range(start: time(v: "{start.isoformat()}"), stop: time(v: "{end.isoformat()}"))
                 |> filter(fn: (r) => r._measurement == "telemetry")
                 |> filter(fn: (r) => r.device_id == "{device_id}")
                 |> pivot(rowKey: ["_time"], columnKey: ["_field"], valueColumn: "_value")
@@ -139,8 +139,13 @@ class InfluxDBClientWrapper:
             records = []
             for _, row in result.iterrows():
                 record = {"timestamp": row["_time"].isoformat() if hasattr(row["_time"], 'isoformat') else str(row["_time"])}
+                SKIP_COLS = {
+                    "_time", "_measurement", "_start", "_stop",
+                    "result", "table", "device_id",
+                    "schema_version", "enrichment_status"
+                }
                 for col in result.columns:
-                    if col not in ["_time", "_measurement", "device_id", "schema_version", "enrichment_status"]:
+                    if col not in SKIP_COLS:
                         if col in row and pd.notna(row[col]):
                             val = row[col]
                             if hasattr(val, 'item'):
@@ -179,8 +184,13 @@ class InfluxDBClientWrapper:
             row = result.iloc[-1]
             record = {"timestamp": str(row["_time"])}
             
+            SKIP_COLS = {
+                "_time", "_measurement", "_start", "_stop",
+                "result", "table", "device_id",
+                "schema_version", "enrichment_status"
+            }
             for col in result.columns:
-                if col not in ["_time", "_measurement", "device_id", "schema_version", "enrichment_status"]:
+                if col not in SKIP_COLS:
                     if col in row:
                         val = row[col]
                         if hasattr(val, 'item'):
